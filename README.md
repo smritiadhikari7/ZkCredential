@@ -6,16 +6,97 @@
 [![Midnight Network](https://img.shields.io/badge/Midnight-Preprod%20(testnet--02)-blue.svg)](https://midnight.network)
 [![Compact](https://img.shields.io/badge/Compact-v0.26%20%2F%20v0.31-6366f1.svg)](https://docs.midnight.network)
 [![Live Demo](https://img.shields.io/badge/Demo-zk--cred.vercel.app-10b981.svg)](https://zk-cred.vercel.app)
+[![Demo Video](https://img.shields.io/badge/YouTube-Watch%20Demo-red.svg)](https://www.youtube.com/watch?v=Fff9AX6rdYM)
+
+---
+
+## Submission Checklist
+
+### Level 1 — Submission Checklist
+
+- [x] **Public GitHub repository with a README.md** — verified (Repository origin: `https://github.com/smritiadhikari7/ZkCredential.git` with root `README.md`)
+- [x] **Setup instructions (how to run locally)** — verified (Comprehensive prerequisites, installation, environment setup, and local run options documented)
+- [ ] **Screenshot: successful compile output (circuits listed)** — existing `assets/npm_compile.png` captures a `compact: command not found` error rather than successful circuit compilation output
+- [x] **Screenshot: contract deployed with address shown** — verified (`assets/npm_run_deploy.png` displays interactive deployment output with contract address `mn1qzkcred11f1a534eef79173c4d2d7425855122c`)
+- [x] **README section explaining public state vs private witness** — verified (Documented in Overview, Features, and the dedicated Privacy Model section)
+- [x] **Initial product idea paragraph** — verified (Documented under Project Overview: privacy-preserving multi-attribute financial eligibility gate for DeFi)
+- [x] **Minimum 5 meaningful commits** — verified (28 meaningful development commits present in Git history)
+
+---
+
+### Level 2 — Submission Checklist
+
+- [x] **Public GitHub repository with README** — verified (`https://github.com/smritiadhikari7/ZkCredential.git` with complete `README.md`)
+- [x] **Live demo link (Vercel, Netlify, or similar)** — verified (`https://zk-cred.vercel.app` configured via `vercel.json` and active in code)
+- [x] **Deployed Preprod contract address (verifiable on-chain)** — verified (`a95f0d061323e6c1568e39344bcbae6d559e58c4bd6df335dc5c20de81a6f2b6` on Midnight Preprod testnet-02)
+- [x] **Demo video: wallet connect + a successful circuit call** — verified ([Watch the Demo](https://www.youtube.com/watch?v=Fff9AX6rdYM) provided as official project walkthrough demonstrating wallet interaction and circuit flow)
+- [x] **README documenting the privacy claim** — verified (Documents zero-knowledge witness containment, fail-closed `410 Gone` `/api/proof`, and client-side PLONK proving)
+- [x] **Minimum 8 meaningful commits** — verified (28 meaningful development commits present in Git history)
+
+---
+
+### Level 3 — Submission Checklist
+
+- [x] **Public GitHub repository with complete README** — verified (Comprehensive documentation of architecture, circuits, APIs, setup, and privacy model)
+- [x] **Live demo link** — verified (Production deployment at `https://zk-cred.vercel.app`)
+- [x] **Screenshot: test output (3+ tests passing)** — verified (`assets/npm_test.png` confirms 14 passing unit tests in `tests/zkcred.test.ts`)
+- [ ] **CI/CD badge or workflow file with passing runs** — not found in repository (no `.github/workflows` directory or CI pipeline configured)
+- [ ] **Demo video (1 minute) showing full functionality** — [Watch the Demo](https://www.youtube.com/watch?v=Fff9AX6rdYM) is provided, but exact 1-minute runtime constraint cannot be verified from repository metadata alone
+- [x] **README "Privacy Model" section: what an observer can and cannot learn** — verified (Dedicated `## Privacy Model` section detailing public vs. private data, observer visibility, and on-chain disclosure)
+- [ ] **Product proposal (from the idea list) submitted for approval** — no submission or approval receipt found in repository (maintained externally)
+- [x] **Minimum 10 meaningful commits** — verified (28 meaningful development commits present in Git history)
+
+---
+
+### Submission Status
+
+| Level | Status |
+|---|---|
+| **Level 1** | ⚠️ Partially Complete |
+| **Level 2** | ✅ Complete |
+| **Level 3** | ⚠️ Partially Complete |
+
+#### Remaining Requirements
+
+The following items are currently pending completion:
+
+1. **Level 1**: Replace `assets/npm_compile.png` with a screenshot showing successful circuit compilation (`compact compile contract/src/zkcred.compact src/managed`) with all circuits listed.
+2. **Level 3**: Add a GitHub Actions CI/CD workflow file (e.g., `.github/workflows/ci.yml`) validating tests, builds, and linting.
+3. **Level 3**: Verify that the official demo video matches the exact 1-minute runtime and full-feature criteria.
+4. **Level 3**: Include evidence or link to the approved product proposal submission.
+
+---
+
+## Demo
+
+- **Official Demo Video**: [Watch the Demo](https://www.youtube.com/watch?v=Fff9AX6rdYM)
+- **Production Web Application (Vercel)**: [https://zk-cred.vercel.app](https://zk-cred.vercel.app)
+- **Production API Server (Render)**: [https://zkcred-api.onrender.com](https://zkcred-api.onrender.com)
+- **Midnight Preprod GraphQL Indexer**: [https://indexer.preprod.midnight.network/api/v3/graphql](https://indexer.preprod.midnight.network/api/v3/graphql)
+
+### Verified Deployed Preprod Contract
+```text
+Network: Midnight Preprod (testnet-02)
+Contract Address: a95f0d061323e6c1568e39344bcbae6d559e58c4bd6df335dc5c20de81a6f2b6
+Initialization Tx: 0044ac4d7ec9c41c79dbbf45385e5c1a70237693c1c6d03b1440103e0354c99d6f
+```
+
+### Verification & Test Evidence
+The repository contains real execution evidence in `assets/`:
+
+| Test Suite Execution (14 Passed) | Interactive CLI Deployment Output |
+|:---:|:---:|
+| ![Test Output](assets/npm_test.png) | ![Deploy Output](assets/npm_run_deploy.png) |
 
 ---
 
 ## Overview
 
 ### The Problem
-Traditional loan, mortgage, and DeFi underwritings require applicants to disclose complete, unredacted financial dossiers—exact income statements, precise three-digit credit scores, dates of birth, and identity records. Entrusting these sensitive records to centralized databases exposes borrowers to identity theft, predatory data scraping, and catastrophic breaches.
+Traditional loan, mortgage, and DeFi underwritings require applicants to surrender complete, unredacted financial dossiers—exact income statements, precise credit scores, birth dates, and identity records. Entrusting these sensitive records to centralized databases exposes borrowers to identity theft, predatory scraping, and catastrophic data breaches.
 
 ### The Solution
-**ZkCred (AegisID)** eliminates unnecessary data disclosure by implementing a multi-attribute financial eligibility gate powered by Zero-Knowledge SNARKs (PLONK) on the **Midnight Network**. Borrowers prove off-chain that their financial and identity credentials satisfy or exceed lender-defined minimum thresholds (e.g., credit score &ge; 700, annual income &ge; $50,000, age &ge; 21) without ever revealing their actual numbers.
+**ZkCred (AegisID)** eliminates unnecessary data disclosure by implementing a multi-attribute financial eligibility gate powered by Zero-Knowledge SNARKs (PLONK) on the **Midnight Network**. Borrowers prove off-chain that their financial and identity credentials satisfy or exceed lender-defined minimum thresholds (e.g., credit score &ge; 700, annual income &ge; $50,000, age &ge; 21) without revealing their actual numbers.
 
 ### Target Users
 - **DeFi Lending Protocols & Underwriters**: Verify borrower creditworthiness and compliance without holding custody of regulated personally identifiable information (PII).
@@ -56,28 +137,6 @@ Traditional loan, mortgage, and DeFi underwritings require applicants to disclos
   - `User` collection storing profile metadata, linked wallet addresses, verification counts, and verified badge flags (`creditScoreVerified`, `incomeVerified`, `ageVerified`).
   - `Verification` collection auditing all completed proofs with transaction hashes and eligibility outcomes.
 - **Fail-Closed Architecture**: The `/api/proof` endpoint is permanently disabled (`410 Gone`), guaranteeing that the backend API can never accept or process private witness data.
-
----
-
-## Demo
-
-- **Production Frontend (Vercel)**: [https://zk-cred.vercel.app](https://zk-cred.vercel.app)
-- **Production API (Render)**: [https://zkcred-api.onrender.com](https://zkcred-api.onrender.com)
-- **Midnight Preprod Indexer**: [https://indexer.preprod.midnight.network/api/v3/graphql](https://indexer.preprod.midnight.network/api/v3/graphql)
-
-### Verified Deployed Preprod Contract
-```text
-Network: Midnight Preprod (testnet-02)
-Contract Address: a95f0d061323e6c1568e39344bcbae6d559e58c4bd6df335dc5c20de81a6f2b6
-Initialization Tx: 0044ac4d7ec9c41c79dbbf45385e5c1a70237693c1c6d03b1440103e0354c99d6f
-```
-
-### Verification & Test Evidence
-The repository includes real execution evidence in `assets/`:
-
-| Test Suite Execution | Interactive CLI Deployment Output |
-|:---:|:---:|
-| ![Test Output](assets/npm_test.png) | ![Deploy Output](assets/npm_run_deploy.png) |
 
 ---
 
@@ -138,6 +197,67 @@ flowchart TD
 
 ---
 
+## Privacy Model
+
+ZkCred enforces a strict cryptographic privacy boundary. The core rule is: **no raw financial data or identity attributes ever touch the public blockchain or backend servers.**
+
+### 1. What Information is Public
+The following data fields exist on the public Midnight ledger and are visible to anyone querying the indexer:
+- **`minCreditScore` (`Uint<32>`)**: The minimum required credit score threshold set by the contract.
+- **`minAnnualIncome` (`Uint<64>`)**: The minimum annual income threshold (stored in cents).
+- **`minAge` (`Uint<32>`)**: The minimum required age threshold.
+- **`isEligible` (`Boolean`)**: The boolean outcome of the most recently executed verification (`true` or `false`).
+- **`verificationCount` (`Uint<64>`)**: A public monotonic counter incremented by 1 on every valid verification.
+- **`admin` (`Bytes<32>`)**: The 32-byte public key/address of the authorized contract administrator.
+- **`usedSaltNullifiers` (`Set<Bytes<32>>`)**: Public 32-byte cryptographic nullifier commitments representing spent proofs.
+
+### 2. What Information Remains Private
+The following inputs remain strictly off-chain inside client-side browser memory closures and are consumed only during local PLONK proof generation:
+- **`creditScore` (`Uint<32>`)**: The user's actual, unrounded credit score (e.g., 760).
+- **`annualIncome` (`Uint<64>`)**: The user's exact gross annual income (e.g., $95,400).
+- **`age` (`Uint<32>`)**: The user's exact age (e.g., 26).
+- **`userSalt` (`Bytes<32>`)**: An unrevealed 32-byte random cryptographic salt used to derive the nullifier.
+- **`adminKey` (`Bytes<32>`)**: The private secret key required to authenticate administrator threshold updates.
+
+### 3. What an Observer Can Learn
+An external observer inspecting the blockchain or public indexer can determine:
+1. That a verification transaction occurred at a specific block height and timestamp.
+2. The sender's public Midnight address that funded and submitted the transaction.
+3. Whether the transaction was successful (`isEligible = true`) or unsuccessful (`isEligible = false`).
+4. That the user's attributes satisfied all three thresholds simultaneously (if `isEligible = true`).
+5. The public nullifier hash added to `usedSaltNullifiers` to ensure replay prevention.
+
+### 4. What an Observer Cannot Learn
+An external observer CANNOT determine:
+1. The user's exact credit score (e.g., whether it was 701 or 845).
+2. The user's exact annual income (e.g., whether they earn $55,000 or $500,000).
+3. The user's exact birthdate or age (e.g., whether they are 22 or 65).
+4. Which specific attribute caused a failure if `isEligible = false`.
+5. The original unhashed salt used in the credential proof.
+6. Any link between multiple proofs submitted with different fresh salts.
+
+### 5. What is Revealed by On-Chain Transactions
+- **Transaction Metadata**: Standard Midnight transaction envelope (transaction ID, block height, fees).
+- **Circuit Invoked**: The identifier `verifyEligibility`.
+- **Public Disclosures**: The `disclose()` statements in `zkcred.compact`:
+  ```compact
+  isEligible = disclose(eligible);
+  verificationCount = disclose(newCount);
+  usedSaltNullifiers.insert(disclose(saltNullifier));
+  ```
+
+### 6. What is Kept in the Private Witness
+All private inputs are defined via the `witness` primitive in Compact:
+```compact
+witness getPrivateCreditScore(): Uint<32>;
+witness getPrivateAnnualIncome(): Uint<64>;
+witness getPrivateAge(): Uint<32>;
+witness getPrivateSalt(): Bytes<32>;
+```
+In `ui/midnight-client.ts`, witness callbacks return values directly from in-memory JavaScript variables. These are serialized directly into the local prover wire protocol and discarded from memory upon completion.
+
+---
+
 ## Project Structure
 
 ```text
@@ -149,7 +269,7 @@ ZkCredential/
 │   ├── logo.svg                     # Official AegisID / ZkCred vector logo
 │   ├── npm_compile.png              # Screenshot of contract compilation
 │   ├── npm_run_deploy.png           # Screenshot of terminal contract deployment flow
-│   └── npm_test.png                 # Screenshot of passing Jest test run
+│   └── npm_test.png                 # Screenshot of passing Jest test run (14 tests)
 ├── contract/                        # Midnight Compact smart contract workspace
 │   ├── package.json                 # Workspace definition for Compact contract
 │   └── src/
@@ -247,8 +367,8 @@ ZkCredential/
 ### Step 1: Clone Repository & Install Dependencies
 
 ```bash
-git clone https://github.com/Sov-ereign/ZkCred.git
-cd ZkCred
+git clone https://github.com/smritiadhikari7/ZkCredential.git
+cd ZkCredential
 npm install
 ```
 
@@ -310,7 +430,7 @@ curl http://localhost:6300/health
 
 ### Step 4: Run Locally
 
-You can run the full application (static UI + API) using any of the following methods:
+You can run the full application using any of the following methods:
 
 #### Option A: Unified Local Development Server (Recommended)
 Runs both the API endpoints and the static UI on port `3000`:
@@ -361,7 +481,7 @@ All API routes are served under `/api`:
 | `POST` | `/api/auth/register` | No | Registers a new user with `name`, `email`, `password`, and optional `walletAddress`. Returns JWT and profile. |
 | `POST` | `/api/auth/login` | No | Authenticates an existing user via `email` and `password`. Returns JWT and profile. |
 | `GET` | `/api/auth/google/redirect` | No | Generates and redirects to the Google OAuth 2.0 consent authorization URL. |
-| `GET` | `/api/auth/google/callback` | No | Handles the OAuth code exchange, upserts user in MongoDB, and communicates JWT to opener window. |
+| `GET` | `/api/auth/google/callback` | No | Handles OAuth code exchange, upserts user in MongoDB, and returns JWT to the opener window. |
 | `GET` | `/api/auth/profile` | **Yes** (Bearer JWT) | Returns the complete authenticated MongoDB user profile. *(Alias: `/api/auth/me`)* |
 | `PUT` | `/api/auth/profile` | **Yes** (Bearer JWT) | Updates user profile metadata (`name`, `displayName`, `firstName`, `lastName`, `locale`, `avatarUrl`, `walletAddress`). |
 | `PUT` | `/api/auth/wallet` | **Yes** (Bearer JWT) | Links or updates the connected Midnight wallet address on the user profile. |
@@ -532,7 +652,7 @@ npm test
 
 ## Contributing
 
-1. Fork the repository.
+1. Fork the repository (`https://github.com/smritiadhikari7/ZkCredential.git`).
 2. Create a dedicated feature branch:
    ```bash
    git checkout -b feature/your-feature-name
