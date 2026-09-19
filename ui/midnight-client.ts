@@ -1,0 +1,323 @@
+/**
+ * Browser-side Midnight transaction client.
+ *
+ * Witness values are closed over by this module and only consumed while the
+ * Compact circuit executes locally. They are never posted to the application
+ * API, indexer, or proof server as JSON.
+ */
+import { CompiledContract } from "@midnight-ntwrk/compact-js";
+import { ContractState as CompactContractState } from "@midnight-ntwrk/compact-runtime";
+import { Transaction, Binding, Proof, SignatureEnabled } from "@midnight-ntwrk/ledger-v8";
+import type { ConnectedAPI, InitialAPI } from "@midnight-ntwrk/dapp-connector-api";
+import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-config-provider";
+import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
+import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
+import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
+import { deployContract, findDeployedContract, submitCallTx } from "@midnight-ntwrk/midnight-js-contracts";
+import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
+import { Buffer as NodeBuffer } from "buffer";
+import * as CompiledOutput from "../src/managed/contract/index.js";
+
+// The official Midnight SDK requires this global before constructing a
+// compiled contract, transaction, or provider. This client is Preprod-only.
+setNetworkId("preprod");
+(globalThis as any).Buffer = (globalThis as any).Buffer ?? NodeBuffer;
+
+type WitnessInput = { creditScore: number; annualIncome: number; age: number; userSalt: string; adminKey?: Uint8Array };
+
+function normalizeContractAddress(address: string): string {
+  const hex = address.replace(/^0x/i, "");
+  if (!/^[0-9a-f]+$/i.test(hex)) throw new Error("Invalid Midnight contract address.");
+  // Midnight's indexer and ledger APIs expect the 64-character hex form
+  // without an Ethereum-style 0x prefix.
+  return hex;
+}
+
+function isContractAddress(address: string): boolean {
+  return /^[0-9a-f]{64}$/i.test(String(address).replace(/^0x/i, ""));
+}
+type ActiveConnection = { api: ConnectedAPI; address: string; providers: any; walletName: string };
+
+let active: ActiveConnection | null = null;
+
+const bytesToHex = (bytes: Uint8Array) => Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+const hexToBytes = (hex: string) => {
+  const clean = hex.replace(/^0x/, "");
+  if (!/^(?:[0-9a-f]{2})*$/i.test(clean)) throw new Error("Wallet returned a malformed serialized transaction.");
+  return new Uint8Array(clean.match(/.{2}/g)?.map((part) => Number.parseInt(part, 16)) ?? []);
+};
+
+function saltBytes(salt: string): Uint8Array {
+  const clean = salt.replace(/^0x/, "");
+  if (!/^[0-9a-f]{64}$/i.test(clean)) throw new Error("A 32-byte random local salt is required.");
+  return hexToBytes(clean);
+}
+
+function storagePassword(): string {
+  const key = "zkcred_private_storage_secret";
+  let secret = sessionStorage.getItem(key);
+  if (!secret) {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    secret = `ZkCred-${bytesToHex(bytes)}!`;
+    sessionStorage.setItem(key, secret);
+  }
+  return secret;
+}
+
+function adminKeyStorageKey(contractAddress: string): string {
+  return `zkcred_admin_key_${normalizeContractAddress(contractAddress)}`;
+}
+
+function saveAdminKey(contractAddress: string, adminKey: Uint8Array): void {
+  // The secret never leaves this browser. It is required only for the optional
+  // admin circuit and follows the same browser-storage risk model Lace warns
+  // about for local private state; users must export/back up browser data.
+  localStorage.setItem(adminKeyStorageKey(contractAddress), bytesToHex(adminKey));
+}
+
+function loadAdminKey(contractAddress: string): Uint8Array | null {
+  const encoded = localStorage.getItem(adminKeyStorageKey(contractAddress));
+  if (!encoded || !/^[0-9a-f]{64}$/i.test(encoded)) return null;
+  return hexToBytes(encoded);
+}
+
+function selectConnector(): InitialAPI {
+  const injected = window as any;
+  const midnightObj = injected.midnight ?? {};
+  // Midnight connectors inject strictly under window.midnight (e.g. mnLace).
+  // Do NOT include window.cardano.lace: that is Lace's Cardano CIP-30 interface,
+  // which causes Cardano wallet connection errors and auto-locks Lace on Midnight.
+  const candidates = [
+    midnightObj.mnLace,
+    midnightObj.lace,
+    ...Object.values(midnightObj),
+    injected.midnight,
+  ] as InitialAPI[];
+  const connector = candidates.find((candidate) => candidate && typeof candidate.connect === "function");
+  if (!connector) {
+    throw new Error("No Midnight DApp Connector was found. Unlock/update Midnight Lace, then retry.");
+  }
+  return connector;
+}
+
+async function waitForConnector(timeoutMs = 7_500): Promise<InitialAPI> {
+  const started = Date.now();
+  do {
+    try { return selectConnector(); } catch { await new Promise((resolve) => setTimeout(resolve, 150)); }
+  } while (Date.now() - started < timeoutMs);
+  return selectConnector();
+}
+
+function compiledContract(input?: WitnessInput) {
+  const witnessInput = input ?? {
+    creditScore: 0,
+    annualIncome: 0,
+    age: 0,
+    userSalt: bytesToHex(new Uint8Array(32)),
+  };
+  const witnesses = {
+    // Preserve the opaque state managed by the Midnight runtime. Returning
+    // `undefined` here corrupts the state threaded through the contract.
+    getPrivateCreditScore: (context: any) => [context.privateState, BigInt(witnessInput.creditScore)],
+    getPrivateAnnualIncome: (context: any) => [context.privateState, BigInt(witnessInput.annualIncome)],
+    getPrivateAge: (context: any) => [context.privateState, BigInt(witnessInput.age)],
+    getPrivateSalt: (context: any) => [context.privateState, saltBytes(witnessInput.userSalt)],
+    getPrivateAdminKey: (context: any) => [context.privateState, witnessInput.adminKey ?? new Uint8Array(32)],
+  };
+  return CompiledContract.make<any>("ZkCred", CompiledOutput.Contract).pipe(
+    CompiledContract.withWitnesses(witnesses as any),
+    CompiledContract.withCompiledFileAssets("./contract/compiled"),
+  );
+}
+
+async function buildProviders(api: ConnectedAPI, accountId: string) {
+  let config: any = {};
+  try {
+    config = await api.getConfiguration();
+  } catch (err) {
+    console.warn("[Midnight] getConfiguration warning:", err);
+  }
+  const indexerUri = config.indexerUri || "https://indexer.preprod.midnight.network/api/v3/graphql";
+  const indexerWsUri = config.indexerWsUri || "wss://indexer.preprod.midnight.network/api/v3/graphql/ws";
+  const proverServerUri = config.proverServerUri || "http://localhost:6300";
+
+  const zkConfigProvider = new FetchZkConfigProvider<any>(`${window.location.origin}/contract/compiled`, fetch.bind(window));
+  // Pass the browser WebSocket explicitly. This avoids relying on Node's
+  // isomorphic-ws export in the web bundle.
+  const rawPublicDataProvider = indexerPublicDataProvider(indexerUri, indexerWsUri, WebSocket as any);
+  const publicDataProvider = {
+    ...rawPublicDataProvider,
+    async queryZSwapAndContractState(contractAddress: any, queryConfig?: any) {
+      const result = await rawPublicDataProvider.queryZSwapAndContractState(contractAddress, queryConfig);
+      if (!result) return result;
+      const [zswapChainState, contractState, ledgerParameters] = result;
+      return [zswapChainState.postBlockUpdate(new Date()), contractState, ledgerParameters] as typeof result;
+    },
+  };
+  const shieldedAddresses = await api.getShieldedAddresses();
+  const coinPublicKey = typeof shieldedAddresses === "object" ? (shieldedAddresses as any)?.shieldedCoinPublicKey : undefined;
+  const encryptionPublicKey = typeof shieldedAddresses === "object" ? (shieldedAddresses as any)?.shieldedEncryptionPublicKey : undefined;
+  if (!coinPublicKey || typeof coinPublicKey !== "string") {
+    throw new Error("Lace wallet did not return a valid shielded coin public key.");
+  }
+  if (!encryptionPublicKey || typeof encryptionPublicKey !== "string") {
+    throw new Error("Lace wallet did not return a valid shielded encryption public key.");
+  }
+
+  const proofProvider = httpClientProofProvider(proverServerUri, zkConfigProvider);
+  const walletProvider = {
+    getCoinPublicKey: () => coinPublicKey,
+    getEncryptionPublicKey: () => encryptionPublicKey,
+    async balanceTx(tx: any) {
+      const result = await api.balanceUnsealedTransaction(bytesToHex(tx.serialize()));
+      return Transaction.deserialize("signature", "proof", "binding", hexToBytes(result.tx)) as Transaction<SignatureEnabled, Proof, Binding>;
+    },
+  };
+  const midnightProvider = {
+    async submitTx(tx: any) {
+      await api.submitTransaction(bytesToHex(tx.serialize()));
+      return tx.identifiers()[0];
+    },
+  };
+  return {
+    privateStateProvider: levelPrivateStateProvider({ privateStoragePasswordProvider: storagePassword, accountId }),
+    publicDataProvider,
+    zkConfigProvider,
+    proofProvider,
+    walletProvider,
+    midnightProvider,
+  };
+}
+
+let connectInFlight: Promise<{ address: string; walletName: string }> | null = null;
+
+async function connect(networkId = "preprod") {
+  if (active) return { address: active.address, walletName: active.walletName };
+  if (connectInFlight) return connectInFlight;
+
+  connectInFlight = (async () => {
+    const connector = await waitForConnector();
+    const api = await connector.connect(networkId);
+    const shielded = await api.getShieldedAddresses();
+    const shieldedAddress = typeof shielded === "string"
+      ? shielded
+      : (shielded as any)?.shieldedAddress ?? (shielded as any)?.address;
+    const unshielded = !shieldedAddress ? await api.getUnshieldedAddress?.() : undefined;
+    const address = shieldedAddress ?? (unshielded as any)?.unshieldedAddress;
+    if (!address) throw new Error("Lace connected, but returned no Midnight address. Select a Midnight Preprod account in Lace and retry.");
+    const providers = await buildProviders(api, address);
+    active = { api, address, providers, walletName: connector.name ?? "Lace" };
+    return { address: active.address, walletName: active.walletName };
+  })();
+
+  try {
+    return await connectInFlight;
+  } finally {
+    connectInFlight = null;
+  }
+}
+
+async function submitEligibility(contractAddress: string, input: WitnessInput) {
+  if (!active) throw new Error("Connect Midnight Lace before generating a proof.");
+  if (!contractAddress || !isContractAddress(contractAddress)) throw new Error("A deployed Midnight contract address is required.");
+  if (!Number.isSafeInteger(input.creditScore) || !Number.isSafeInteger(input.age) || !Number.isSafeInteger(input.annualIncome)) {
+    throw new Error("Witness inputs must be safe integers.");
+  }
+  const contract = compiledContract(input);
+  // This verifies that the deployed verifier keys match the locally compiled
+  // contract before any witness is used for proving.
+  const deployed = await findDeployedContract(active.providers, { compiledContract: contract, contractAddress: contractAddress as any });
+  const tx = await submitCallTx(active.providers, {
+    compiledContract: contract,
+    contractAddress: deployed.deployTxData.public.contractAddress,
+    circuitId: "verifyEligibility" as any,
+  } as any);
+  return { transactionId: String((tx as any).txId ?? (tx as any).public?.txId ?? "") };
+}
+
+async function updateThresholds(contractAddress: string, thresholds: { minCreditScore: number; minAnnualIncome: number; minAge: number }) {
+  if (!active) throw new Error("Connect Midnight Lace before updating thresholds.");
+  const adminKey = loadAdminKey(contractAddress);
+  if (!adminKey) throw new Error("This browser does not hold the administrator key for this contract.");
+  if (![thresholds.minCreditScore, thresholds.minAnnualIncome, thresholds.minAge].every(Number.isSafeInteger)) {
+    throw new Error("Threshold values must be safe integers.");
+  }
+  const contract = compiledContract({ creditScore: 0, annualIncome: 0, age: 0, userSalt: bytesToHex(new Uint8Array(32)), adminKey });
+  const deployed = await findDeployedContract(active.providers, { compiledContract: contract, contractAddress: contractAddress as any });
+  const tx = await submitCallTx(active.providers, {
+    compiledContract: contract,
+    contractAddress: deployed.deployTxData.public.contractAddress,
+    circuitId: "updateThresholds" as any,
+    args: [BigInt(thresholds.minCreditScore), BigInt(thresholds.minAnnualIncome), BigInt(thresholds.minAge)],
+  } as any);
+  return { transactionId: String((tx as any).txId ?? (tx as any).public?.txId ?? "") };
+}
+
+/** Reads and decodes the public ledger with the generated Compact binding. */
+async function getLedgerState(contractAddress: string) {
+  if (!active) throw new Error("Connect Midnight Lace before reading contract state.");
+  if (!contractAddress || !isContractAddress(contractAddress)) throw new Error("A deployed Midnight contract address is required.");
+  const contract = compiledContract({ creditScore: 0, annualIncome: 0, age: 0, userSalt: bytesToHex(new Uint8Array(32)) });
+  // Match verifier keys before trusting or displaying state from this address.
+  await findDeployedContract(active.providers, { compiledContract: contract, contractAddress: contractAddress as any });
+  const queried = await active.providers.publicDataProvider.queryZSwapAndContractState(contractAddress as any);
+  if (!queried) throw new Error("The configured contract was not found on the wallet's Midnight indexer.");
+  const [, publicState] = queried;
+  // The indexer and generated binding can be bundled with distinct copies of
+  // the WASM runtime. Re-serialize through this app's runtime copy so its
+  // ChargedState identity check succeeds. The generated ledger binding accepts
+  // the charged state itself (not the enclosing ContractState).
+  const normalizedState = CompactContractState.deserialize((publicState as any).serialize());
+  const ledger = CompiledOutput.ledger((normalizedState as any).data);
+  return {
+    contractAddress,
+    minCreditScore: Number(ledger.minCreditScore),
+    minAnnualIncome: Number(ledger.minAnnualIncome),
+    minAge: Number(ledger.minAge),
+    isEligible: ledger.isEligible,
+    verificationCount: Number(ledger.verificationCount),
+  };
+}
+
+/**
+ * Deploys the locally compiled contract through the connected wallet. This is
+ * deliberately interactive: Lace selects funds, signs, and submits the
+ * transaction. The returned address is saved only in this browser until the
+ * operator verifies it and configures CONTRACT_ADDRESS for the hosted API.
+ */
+async function deploy(
+  thresholds: { minCreditScore: number; minAnnualIncome: number; minAge: number },
+) {
+  if (!active) throw new Error("Connect Midnight Lace before deployment.");
+  if (![thresholds.minCreditScore, thresholds.minAnnualIncome, thresholds.minAge].every(Number.isSafeInteger)) {
+    throw new Error("Deployment thresholds must be safe integers.");
+  }
+  const adminKey = new Uint8Array(32);
+  crypto.getRandomValues(adminKey);
+  const contract = compiledContract();
+  // Compact 0.26 emits `initialize` as the constructor circuit. The current
+  // midnight-js runtime creates the contract state first, then invokes that
+  // circuit through the deployed call interface; passing args to
+  // deployContract would incorrectly feed them to initialState().
+  const deployed = await deployContract(active.providers, {
+    compiledContract: contract,
+    privateStateId: "zkcred-private-state",
+    initialPrivateState: {},
+  } as any);
+  const initialized = await deployed.callTx.initialize(
+    BigInt(thresholds.minCreditScore),
+    BigInt(thresholds.minAnnualIncome),
+    BigInt(thresholds.minAge),
+    adminKey,
+  );
+  const address = normalizeContractAddress(String(deployed.deployTxData.public.contractAddress));
+  localStorage.setItem("zkcred_contract_address", address);
+  saveAdminKey(address, adminKey);
+  return {
+    contractAddress: address,
+    transactionId: String((initialized as any).txId ?? (initialized as any).public?.txId ?? deployed.deployTxData.public.txId ?? ""),
+  };
+}
+
+(window as any).ZkCredMidnight = { connect, deploy, getLedgerState, submitEligibility, updateThresholds, hasAdminKey: (address: string) => Boolean(loadAdminKey(address)), isConnected: () => Boolean(active) };
