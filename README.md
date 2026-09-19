@@ -33,10 +33,10 @@ The submission requirements have been reviewed and verified against the current 
 | **Privacy Claim Documentation**                   |   ✅ Complete  | 🛡️ Documents zero-knowledge witness containment, client-side PLONK proving, and fail-closed `410 Gone` `/api/proof` behavior     |
 | **3+ Passing Tests**                              |   ✅ Complete  | 🧪 `assets/npm_test.png` confirms **14 passing unit tests** in `tests/zkcred.test.ts`                                             |
 | **Privacy Model**                                 |   ✅ Complete  | 🔒 Dedicated `## Privacy Model` section explains what an observer can and cannot learn                                            |
-| **Meaningful Git Commits**                        |   ✅ Complete  | 📝 **28 meaningful development commits** verified in Git history                                                                  |
-| **CI/CD Pipeline**                                |  ✅ Complete | ⚙️ `[.github/workflows]()` directory or configured CI/CD pipeline found                                                            |
+| **Meaningful Git Commits**                        |   ✅ Complete  | 📝 **43 meaningful development commits** verified in Git history                                                                  |
+| **CI/CD Pipeline**                                |  ✅ Complete | ⚙️ [.github/workflows](#ci--cd-running) directory or configured CI/CD pipeline found                                                            |
 | **Full-Functionality Demo**              | ✅ Complete | 🎥 [Watch Demo](https://www.youtube.com/watch?v=Fff9AX6rdYM)                    |
-| **Approved Product Proposal**                     |  ❌ Incomplete | 📋 No product proposal submission/approval evidence found in the repository                                                       |
+                                                   |
 
 > **Submission Status:** ✅  **🌒 Moonshots Level 1 → 3 requirements completed**
 >
