@@ -1,26 +1,96 @@
 {
-  "name": "zkcredential",
-  "version": "0.1.0",
+  "name": "zkcred-aegisid",
+  "version": "1.0.0",
+  "description": "ZkCred (AegisID) — Privacy-first zero-knowledge credit verification on Midnight Network",
   "private": true,
+  "workspaces": [
+    "contract",
+    "."
+  ],
+  "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "compile": "compact compile contract/src/zkcred.compact src/managed",
+    "build": "tsc",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest --forceExit",
+    "deploy": "tsx src/index.ts",
+    "server": "node server/index.js",
+    "start": "node server/index.js",
+    "ui": "vite --host 0.0.0.0",
+    "ui:build": "vite build",
+    "dev": "vercel dev --listen 3000",
+    "dev:local": "node server/local.js",
+    "vercel:deploy": "vercel --prod"
   },
   "dependencies": {
-    "next": "16.3.5",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "@midnight-ntwrk/compact-runtime": "^0.16.0",
+    "@midnight-ntwrk/dapp-connector-api": "^4.0.1",
+    "@midnight-ntwrk/ledger-v8": "^8.1.0",
+    "@midnight-ntwrk/midnight-js-contracts": "^4.1.1",
+    "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "^4.1.1",
+    "@midnight-ntwrk/midnight-js-http-client-proof-provider": "^4.1.1",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "^4.1.1",
+    "@midnight-ntwrk/midnight-js-level-private-state-provider": "^4.1.1",
+    "@midnight-ntwrk/midnight-js-types": "^4.1.1",
+    "@vercel/analytics": "^1.4.1",
+    "@vercel/speed-insights": "^1.2.0",
+    "assert": "^2.1.0",
+    "bcryptjs": "^3.0.3",
+    "browser-level": "^2.0.0",
+    "buffer": "^6.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "events": "^3.3.0",
+    "express": "^5.2.1",
+    "google-auth-library": "^11.0.2",
+    "jsonwebtoken": "^9.0.3",
+    "level": "^10.0.0",
+    "mongoose": "^9.9.5",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
+    "util": "^0.12.5",
+    "vite-plugin-static-copy": "^2.3.2",
+    "vite-plugin-wasm": "^3.4.1"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.5",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.0.0",
+    "jest": "^29.7.0",
+    "serve": "^14.2.4",
+    "ts-jest": "^29.2.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0"
+  },
+  "jest": {
+    "preset": "ts-jest/presets/default-esm",
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.ts"
+    ],
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
+    "transform": {
+      "^.+\\.tsx?$": [
+        "ts-jest",
+        {
+          "useESM": true
+        }
+      ]
+    }
+  },
+  "keywords": [
+    "midnight",
+    "zero-knowledge",
+    "privacy",
+    "compact",
+    "zk-proofs",
+    "defi",
+    "credit"
+  ],
+  "author": "ZkCred Team",
+  "license": "MIT"
 }

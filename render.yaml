@@ -1,0 +1,31 @@
+services:
+  # ─── ZkCred API (Express + MongoDB + Google OAuth) ────────────────────────
+  # Deployed at: https://zkcred-api.onrender.com
+  - type: web
+    name: zkcred-api
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: .
+    buildCommand: npm install
+    startCommand: node server/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: https://zkcred-api.onrender.com/api/auth/google/callback
+      - key: CONTRACT_ADDRESS
+        value: a95f0d061323e6c1568e39344bcbae6d559e58c4bd6df335dc5c20de81a6f2b6
+      - key: MIDNIGHT_INDEXER_URL
+        value: https://indexer.preprod.midnight.network/api/v3/graphql
+    healthCheckPath: /api/health

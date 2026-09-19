@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "buildCommand": "npm run ui:build",
+  "outputDirectory": "ui/dist",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.js" }
+  ]
+}

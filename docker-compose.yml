@@ -1,0 +1,33 @@
+version: '3.8'
+
+# ─── Local Development Stack ──────────────────────────────────────────────────
+# Run this to start the Midnight proof server locally:
+#
+#   docker compose up -d
+#
+# The proof server will be available at http://localhost:6300
+# The frontend (ui/index.html) and the npm deploy script both talk to it.
+#
+# Prerequisites:
+#   - Docker installed and running
+#   - Port 6300 free
+
+services:
+  proof-server:
+    image: midnightnetwork/proof-server:latest
+    container_name: midnight-proof-server
+    ports:
+      - "6300:6300"
+    volumes:
+      # Cache downloaded ZK parameters so they don't re-download on restart (~1GB)
+      - proof-server-cache:/root/.cache
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6300/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+volumes:
+  proof-server-cache:
