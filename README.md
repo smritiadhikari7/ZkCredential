@@ -34,7 +34,7 @@ The submission requirements have been reviewed and verified against the current 
 | **3+ Passing Tests**                              |   ✅ Complete  | 🧪 `assets/npm_test.png` confirms **14 passing unit tests** in `tests/zkcred.test.ts`                                             |
 | **Privacy Model**                                 |   ✅ Complete  | 🔒 Dedicated `## Privacy Model` section explains what an observer can and cannot learn                                            |
 | **Meaningful Git Commits**                        |   ✅ Complete  | 📝 **28 meaningful development commits** verified in Git history                                                                  |
-| **CI/CD Pipeline**                                |  ❌ Incomplete | ⚙️ No `.github/workflows` directory or configured CI/CD pipeline found                                                            |
+| **CI/CD Pipeline**                                |  ✅ Complete | ⚙️ `[.github/workflows]()` directory or configured CI/CD pipeline found                                                            |
 | **Full-Functionality Demo**              | ✅ Complete | 🎥 [Watch Demo](https://www.youtube.com/watch?v=Fff9AX6rdYM)                    |
 | **Approved Product Proposal**                     |  ❌ Incomplete | 📋 No product proposal submission/approval evidence found in the repository                                                       |
 
@@ -43,6 +43,8 @@ The submission requirements have been reviewed and verified against the current 
 > ZkCredential includes a public GitHub repository, complete documentation, local setup instructions, live deployment, deployed Midnight Preprod contract, privacy model, working circuit/test evidence, 14 passing tests, 28 meaningful commits, and a project demo video. Remaining gaps are the successful circuit compilation screenshot, CI/CD workflow, verifiable 1-minute demo duration, and external product proposal approval evidence.
 
 ---
+# CI & CD Running 
+<img width="1882" height="777" alt="image" src="https://github.com/user-attachments/assets/b7c949f5-9d9b-4f7b-a877-d48887affab8" />
 
 ## Demo
 
