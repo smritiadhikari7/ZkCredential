@@ -1,0 +1,109 @@
+pragma language_version 0.23.0;
+import CompactStandardLibrary;
+
+// =============================================================================
+// ZkCred (AegisID) — Multi-Attribute Age & Financial Eligibility Gate
+// Language: Compact v0.26 | Target: Midnight Network Preprod
+// Level 3 Track: Option 2 — Age / Eligibility Gate
+// =============================================================================
+//
+// PRIVACY MODEL:
+// ┌───────────────────────────┐      ┌───────────────────────────┐
+// │   PRIVATE WITNESS (LOCAL) │ ──── │  SELECTIVE DISCLOSURE     │
+// │   - age                   │      │  disclose(isEligible)     │
+// │   - creditScore           │      │         ↓                 │
+// │   - annualIncome          │      │  PUBLIC LEDGER STATE      │
+// │   - userSalt              │      │  - isEligible: true/false │
+// └───────────────────────────┘      └───────────────────────────┘
+// =============================================================================
+
+// --- Public Ledger State (on-chain visible) ---
+export ledger minCreditScore: Uint<32>;
+export ledger minAnnualIncome: Uint<64>;
+export ledger minAge: Uint<32>;
+export ledger isEligible: Boolean;
+export ledger verificationCount: Uint<64>;
+export ledger admin: Bytes<32>;
+// Domain-separated nullifiers are public one-way commitments of a private
+// salt. They prevent the same credential witness from being replayed without
+// revealing its salt, age, credit score, or income.
+export ledger usedSaltNullifiers: Set<Bytes<32>>;
+
+// --- Private Witness Declarations (local off-chain only) ---
+witness getPrivateCreditScore(): Uint<32>;
+witness getPrivateAnnualIncome(): Uint<64>;
+witness getPrivateAge(): Uint<32>;
+witness getPrivateSalt(): Bytes<32>;
+witness getPrivateAdminKey(): Bytes<32>;
+
+// --- Constructor / Initializer ---
+export circuit initialize(
+  creditScoreThreshold: Uint<32>,
+  annualIncomeThreshold: Uint<64>,
+  ageThreshold: Uint<32>,
+  adminAddress: Bytes<32>
+): [] {
+  minCreditScore = disclose(creditScoreThreshold);
+  minAnnualIncome = disclose(annualIncomeThreshold);
+  minAge = disclose(ageThreshold);
+  isEligible = disclose(false);
+  verificationCount = disclose(0 as Uint<64>);
+  admin = disclose(adminAddress);
+}
+
+// --- Option 2 Core ZK Eligibility Gate Circuit ---
+// Evaluates Age, Credit Score, and Income inside PLONK ZK Circuit.
+// Discloses ONLY the boolean outcome via disclose(). The salt remains a private
+// witness and is never copied to public ledger state.
+export circuit verifyEligibility(): [] {
+  // Retrieve private values from off-chain witnesses
+  const creditScore: Uint<32> = getPrivateCreditScore();
+  const annualIncome: Uint<64> = getPrivateAnnualIncome();
+  const age: Uint<32> = getPrivateAge();
+  const salt: Bytes<32> = getPrivateSalt();
+
+  // A salt is private input; only its domain-separated nullifier is stored.
+  // This prevents replay of a proof with the same credential secret while
+  // avoiding cross-protocol linkability from an unscoped hash.
+  const saltNullifier: Bytes<32> = disclose(persistentHash<Vector<2, Bytes<32>>>([
+    pad(32, "zkcred:eligibility:nullifier:v1"),
+    salt
+  ]));
+  assert(!usedSaltNullifiers.member(saltNullifier), "Credential salt already used");
+
+  // Evaluate thresholds inside ZK circuit (zero-knowledge proof)
+  const meetsScoreThreshold: Boolean = creditScore >= minCreditScore;
+  const meetsIncomeThreshold: Boolean = annualIncome >= minAnnualIncome;
+  const meetsAgeThreshold: Boolean = age >= minAge;
+
+  const eligible: Boolean = meetsScoreThreshold && meetsIncomeThreshold && meetsAgeThreshold;
+
+  // Disclose ONLY boolean eligibility
+  isEligible = disclose(eligible);
+
+  // Increment public verification counter with explicit Uint<64> cast
+  const newCount: Uint<64> = (verificationCount + (1 as Uint<64>)) as Uint<64>;
+  verificationCount = disclose(newCount);
+  usedSaltNullifiers.insert(disclose(saltNullifier));
+}
+
+// --- Admin Circuit: Update Thresholds ---
+export circuit updateThresholds(
+  newMinCreditScore: Uint<32>,
+  newMinAnnualIncome: Uint<64>,
+  newMinAge: Uint<32>
+): [] {
+  // Authorize caller against admin ledger state
+  const callerKey: Bytes<32> = getPrivateAdminKey();
+  assert(callerKey == admin, "Unauthorized: caller is not authorized admin");
+
+  minCreditScore = disclose(newMinCreditScore);
+  minAnnualIncome = disclose(newMinAnnualIncome);
+  minAge = disclose(newMinAge);
+  isEligible = disclose(false);
+}
+
+// --- Query Circuit ---
+export circuit getEligibilityStatus(): Boolean {
+  return disclose(isEligible);
+}
